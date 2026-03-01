@@ -1,0 +1,8 @@
+Port,LAG,Description,Admin,Oper,Speed,MTU,LLDP Neighbor,Remote Port
+xe-0/0/0,ae0,server-01 eth0,up,up,10G,9216,server-01.example.net,eno1np0
+xe-0/0/1,ae0,server-01 eth1,up,up,10G,9216,server-01.example.net,eno2np1
+xe-0/0/2,ae1,server-02 eth0,up,up,10G,9216,server-02.example.net,ens3f0np0
+xe-0/0/3,-,unused,up,down,N/A,1500,-,-
+et-0/0/48,-,uplink-spine-01,up,up,100G,9216,spine-01.example.net,et-0/0/0
+ae0,2 members,server-01 LAG,up,up,10G,9216,server-01.example.net,bond0
+ae1,1 members,server-02 LAG,up,up,10G,9216,server-02.example.net,bond0

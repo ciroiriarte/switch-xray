@@ -1,0 +1,79 @@
+[
+  {
+    "port": "xe-0/0/0",
+    "lag": "ae0",
+    "description": "server-01 eth0",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "10G",
+    "mtu": 9216,
+    "lldp_neighbor": "server-01.example.net",
+    "remote_port": "eno1np0"
+  },
+  {
+    "port": "xe-0/0/1",
+    "lag": "ae0",
+    "description": "server-01 eth1",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "10G",
+    "mtu": 9216,
+    "lldp_neighbor": "server-01.example.net",
+    "remote_port": "eno2np1"
+  },
+  {
+    "port": "xe-0/0/2",
+    "lag": "ae1",
+    "description": "server-02 eth0",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "10G",
+    "mtu": 9216,
+    "lldp_neighbor": "server-02.example.net",
+    "remote_port": "ens3f0np0"
+  },
+  {
+    "port": "xe-0/0/3",
+    "lag": "-",
+    "description": "unused",
+    "admin_status": "up",
+    "oper_status": "down",
+    "speed": "N/A",
+    "mtu": 1500,
+    "lldp_neighbor": "-",
+    "remote_port": "-"
+  },
+  {
+    "port": "et-0/0/48",
+    "lag": "-",
+    "description": "uplink-spine-01",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "100G",
+    "mtu": 9216,
+    "lldp_neighbor": "spine-01.example.net",
+    "remote_port": "et-0/0/0"
+  },
+  {
+    "port": "ae0",
+    "lag": "2 members",
+    "description": "server-01 LAG",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "10G",
+    "mtu": 9216,
+    "lldp_neighbor": "server-01.example.net",
+    "remote_port": "bond0"
+  },
+  {
+    "port": "ae1",
+    "lag": "1 members",
+    "description": "server-02 LAG",
+    "admin_status": "up",
+    "oper_status": "up",
+    "speed": "10G",
+    "mtu": 9216,
+    "lldp_neighbor": "server-02.example.net",
+    "remote_port": "bond0"
+  }
+]
