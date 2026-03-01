@@ -1,0 +1,9 @@
+samples/raw/
+*.swp
+*.swo
+*~
+.*.swp
+\#*\#
+.#*
+*.bak
+*.orig

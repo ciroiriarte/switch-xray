@@ -1,0 +1,501 @@
+.\" switch-xray.8 - man page for switch-xray
+.\" Copyright (C) 2026 Ciro Iriarte
+.\" Licensed under GPL-3.0-or-later
+.\"
+.TH SWITCH-XRAY 8 "2026-03-01" "switch-xray 1.0.0" "System Administration Commands"
+.
+.SH NAME
+switch-xray \- switch port diagnostics and documentation via SNMP
+.
+.SH SYNOPSIS
+.B switch-xray.sh
+.RI [ OPTIONS ]
+.B \-\-switch
+.I HOST
+.RI [ \-\-switch
+.IR HOST .\|.\|.]
+.
+.SH DESCRIPTION
+.B switch-xray
+is a diagnostic tool that provides a snapshot of switch port configuration and
+cabling via SNMP.
+It is the switch-side counterpart to
+.BR nic-xray (8),
+designed for implementation documentation and ad-hoc troubleshooting.
+.PP
+For each switch port it displays:
+.RS 4
+.IP \(bu 2
+Port name and description (ifAlias)
+.IP \(bu 2
+LAG membership (ae/Port-Channel) with member count
+.IP \(bu 2
+Administrative and operational status (color-coded)
+.IP \(bu 2
+Negotiated speed (color-coded by tier)
+.IP \(bu 2
+MTU
+.IP \(bu 2
+LLDP neighbor system name and remote port
+.RE
+.PP
+When querying multiple switches,
+.B cross-switch LAG detection
+(ESI-LAG / MCLAG) identifies hosts with LAG members spanning different
+switches, common in EVPN/VXLAN IP Fabric and traditional MCLAG deployments.
+.PP
+Supports multiple output formats:
+.BR table " (default, with dynamic column widths),"
+.BR CSV ", " JSON ", and"
+.B network topology diagrams
+(DOT/SVG/PNG).
+.
+.SH OPTIONS
+.
+.SS Target
+.TP
+.BI \-\-switch " HOST"
+Switch hostname or IP address to query.
+This option can be specified multiple times to query several switches in a
+single run.
+Required unless
+.B SWITCH_XRAY_SWITCHES
+is set.
+.TP
+.BI \-\-platform " PLATFORM"
+Force platform detection instead of auto-detecting via sysDescr.0.
+Valid values:
+.BR junos ", " arista ", " cumulus ", " cisco ", " generic .
+.
+.SS SNMP Authentication
+.TP
+.BI \-\-snmp\-version " VER"
+SNMP version.
+Valid values:
+.B 2c
+(default) or
+.BR 3 .
+.TP
+.BI \-c " STR" "\fR,\fP \-\-community " STR
+SNMPv2c community string.
+Required when using SNMP version 2c.
+.TP
+.BI \-u " USER" "\fR,\fP \-\-snmp\-user " USER
+SNMPv3 username.
+Required when using SNMP version 3.
+.TP
+.BI \-l " LVL" "\fR,\fP \-\-sec\-level " LVL
+SNMPv3 security level.
+Valid values:
+.BR noAuthNoPriv ", " authNoPriv ", " authPriv .
+.TP
+.BI \-a " PROTO" "\fR,\fP \-\-auth\-proto " PROTO
+SNMPv3 authentication protocol.
+Valid values:
+.BR MD5 ", " SHA ", " SHA\-256 ", " SHA\-384 ", " SHA\-512 .
+.TP
+.BI \-A " PASS" "\fR,\fP \-\-auth\-pass " PASS
+SNMPv3 authentication passphrase.
+.TP
+.BI \-x " PROTO" "\fR,\fP \-\-priv\-proto " PROTO
+SNMPv3 privacy protocol.
+Valid values:
+.BR DES ", " AES ", " AES\-256 .
+.TP
+.BI \-X " PASS" "\fR,\fP \-\-priv\-pass " PASS
+SNMPv3 privacy passphrase.
+.TP
+.BI \-\-config " FILE"
+Path to a configuration file.
+If the file does not exist, the program exits with an error.
+See
+.B CONFIGURATION
+below.
+.TP
+.BI \-\-timeout " SECS"
+SNMP timeout in seconds.
+Default: 5.
+.TP
+.BI \-\-retries " N"
+Number of SNMP retries.
+Default: 1.
+.
+.SS Display
+.TP
+.B \-\-lldp\-detail
+Show the LLDP remote system description column.
+.TP
+.B \-\-vlans
+Show PVID/VLAN information columns.
+.TP
+.B \-\-all
+Enable all optional columns (equivalent to
+.B \-\-lldp\-detail \-\-vlans
+plus the switch model column).
+.TP
+.B \-\-no\-color
+Disable ANSI color codes in output.
+Useful when piping to a file or pager.
+.TP
+.BI \-\-filter\-status " TYPE"
+Show only ports matching the given status.
+Valid values:
+.BR up " (operationally up),"
+.BR down " (operationally down),"
+.BR admin\-down " (administratively disabled)."
+.TP
+.BI \-\-filter\-port " PATTERN"
+Show only ports whose name matches the given glob pattern.
+For example,
+.B \(dqxe\-0/0/*\(dq
+shows only 10G ports on slot 0.
+.
+.SS Format
+.TP
+.BI \-s \fR[\fISEP\fR]\fP "\fR,\fP \-\-separator" \fR[\fP=\fISEP\fR]\fP
+Add column separators to the table output.
+If
+.I SEP
+is not given, defaults to
+.BR | .
+The separator argument is optional and must be attached to the short form
+without a space (e.g.\&
+.BR \-s\(dq;\(dq ).
+.TP
+.B \-\-group\-switch
+Insert visual group separators between switches in multi-switch output.
+.TP
+.BI \-\-output " FORMAT"
+Output format.
+Valid values:
+.BR table " (default),"
+.BR csv ", " json ", " dot ", " svg ", " png .
+.RS
+.IP \(bu 2
+.B table
+\(em human-readable table with dynamic column widths and optional colors.
+.IP \(bu 2
+.B csv
+\(em comma-separated values (use
+.B \-s
+to change the delimiter).
+.IP \(bu 2
+.B json
+\(em JSON array of objects, one per port.
+.IP \(bu 2
+.B dot
+\(em Graphviz DOT source written to stdout.
+.IP \(bu 2
+.B svg
+\(em renders the DOT graph to SVG (requires
+.BR graphviz ).
+.IP \(bu 2
+.B png
+\(em renders the DOT graph to PNG (requires
+.BR graphviz ).
+.RE
+.TP
+.BI \-\-diagram\-style " STYLE"
+Diagram layout style for DOT/SVG/PNG output.
+Valid values:
+.BR switch " (default),"
+.BR network .
+.RS
+.IP \(bu 2
+.B switch
+\(em switch-centric view with switch clusters and port sub-nodes.
+.IP \(bu 2
+.B network
+\(em network-centric view showing the full mesh topology.
+.RE
+.TP
+.BI \-\-diagram\-out " FILE"
+Output file path for SVG or PNG diagrams.
+If not specified, a default filename is generated based on the switch name(s).
+.
+.SS General
+.TP
+.BR \-v ", " \-\-version
+Print version information and exit.
+.TP
+.BR \-h ", " \-\-help
+Print a help message and exit.
+.
+.SH CONFIGURATION
+.B switch-xray
+reads configuration from the following locations, in order of precedence:
+.RS 4
+.IP 1. 4
+Explicit path via
+.BI \-\-config " FILE"
+.IP 2. 4
+.I ~/.switch-xray.conf
+.IP 3. 4
+.I /etc/switch-xray.conf
+.RE
+.PP
+Only the first matching file is loaded.
+CLI arguments always override configuration file values.
+.PP
+The configuration file uses a simple
+.IB key = value
+format, one setting per line.
+Lines beginning with
+.B #
+are comments.
+See
+.I switch-xray.conf.example
+for all available keys.
+.PP
+Recognized keys:
+.TP
+.B switch
+Switch hostname or IP (repeatable).
+.TP
+.B snmp_version
+SNMP version (2c or 3).
+.TP
+.B community
+SNMPv2c community string.
+.TP
+.B snmp_user
+SNMPv3 username.
+.TP
+.B sec_level
+SNMPv3 security level.
+.TP
+.B auth_proto
+SNMPv3 auth protocol.
+.TP
+.B auth_pass
+SNMPv3 auth passphrase.
+.TP
+.B priv_proto
+SNMPv3 privacy protocol.
+.TP
+.B priv_pass
+SNMPv3 privacy passphrase.
+.TP
+.B timeout
+SNMP timeout in seconds.
+.TP
+.B retries
+SNMP retries.
+.TP
+.B platform
+Force platform detection.
+.
+.SH ENVIRONMENT
+The following environment variables are recognized.
+They override configuration file values but are overridden by CLI arguments.
+.TP
+.B SWITCH_XRAY_SWITCHES
+Comma-separated list of switch hostnames or IP addresses.
+.TP
+.B SWITCH_XRAY_COMMUNITY
+SNMPv2c community string.
+.TP
+.B SWITCH_XRAY_VERSION
+SNMP version
+.RB ( 2c
+or
+.BR 3 ).
+.TP
+.B SWITCH_XRAY_USER
+SNMPv3 username.
+.TP
+.B SWITCH_XRAY_SEC_LEVEL
+SNMPv3 security level.
+.TP
+.B SWITCH_XRAY_AUTH_PROTO
+SNMPv3 authentication protocol.
+.TP
+.B SWITCH_XRAY_AUTH_PASS
+SNMPv3 authentication passphrase.
+.TP
+.B SWITCH_XRAY_PRIV_PROTO
+SNMPv3 privacy protocol.
+.TP
+.B SWITCH_XRAY_PRIV_PASS
+SNMPv3 privacy passphrase.
+.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution (including when no matching interfaces are found).
+.TP
+.B 1
+Error: invalid arguments, missing dependencies, unreachable switches,
+SNMP authentication failure, or rendering failure.
+.
+.SH EXAMPLES
+Query a single switch using SNMPv2c:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch 10.0.0.1 -c public
+.EE
+.RE
+.PP
+Query multiple switches:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 --switch sw2 -c public
+.EE
+.RE
+.PP
+Use SNMPv3 authentication:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch 10.0.0.1 --snmp-version 3 \\
+  -u myuser -l authPriv -a SHA -A authpass -x AES -X privpass
+.EE
+.RE
+.PP
+Show all optional columns:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --all
+.EE
+.RE
+.PP
+Filter to only operationally up ports:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --filter-status up
+.EE
+.RE
+.PP
+Filter ports by name (glob pattern):
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --filter-port "xe-0/0/*"
+.EE
+.RE
+.PP
+Group output by switch with column separators:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch leaf-01 --switch leaf-02 -c public \\
+  --group-switch -s
+.EE
+.RE
+.PP
+CSV output with pipe delimiter:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --output csv -s'|'
+.EE
+.RE
+.PP
+JSON output with all fields:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --output json --all
+.EE
+.RE
+.PP
+Generate an SVG topology diagram:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 -c public --output svg
+.EE
+.RE
+.PP
+Generate a PNG diagram with custom output path and network style:
+.PP
+.RS 4
+.EX
+switch-xray.sh --switch sw1 --switch sw2 -c public \\
+  --output png --diagram-out net.png --diagram-style network
+.EE
+.RE
+.PP
+Use a configuration file:
+.PP
+.RS 4
+.EX
+switch-xray.sh --config /etc/switch-xray.conf
+.EE
+.RE
+.
+.SH SUPPORTED PLATFORMS
+Platform detection is automatic via
+.BR sysDescr.0 .
+Use
+.B \-\-platform
+to override.
+.PP
+.TP
+.B JunOS (QFX, EX, MX) \fR\(em Primary\fP
+xe-*, et-*, ge-*, mge-*, ae*
+.TP
+.B Arista EOS \fR\(em Supported\fP
+Ethernet*, Port-Channel*
+.TP
+.B Generic (any SNMP device) \fR\(em Fallback\fP
+ifType 6 (ethernet) and 161 (LAG)
+.PP
+New platforms can be added by implementing a
+.BI filter_interfaces_ PLATFORM ()
+function.
+.
+.SH FILES
+.TP
+.I ~/.switch-xray.conf
+Per-user configuration file.
+.TP
+.I /etc/switch-xray.conf
+System-wide configuration file.
+.TP
+.I switch-xray.conf.example
+Example configuration file distributed with the source.
+.
+.SH DEPENDENCIES
+.TP
+.B Required
+.BR snmpbulkwalk (1)
+or
+.BR snmpwalk (1),
+and
+.BR snmpget (1)
+(from the
+.B net-snmp
+package).
+.TP
+.B Optional
+.BR dot (1)
+(from the
+.B graphviz
+package) \(em required for
+.B \-\-output svg
+and
+.B \-\-output png .
+.
+.SH SEE ALSO
+.BR nic-xray (8),
+.BR snmpbulkwalk (1),
+.BR snmpwalk (1),
+.BR snmpget (1),
+.BR dot (1)
+.
+.SH BUGS
+Report bugs at
+.UR https://github.com/ciroiriarte/switch-xray/issues
+.UE .
+.
+.SH AUTHORS
+.B Ciro Iriarte
+.
+.SH LICENSE
+GNU General Public License v3.0.
+See the LICENSE file distributed with the source for details.

@@ -1,0 +1,55 @@
+# switch-xray configuration file
+#
+# Place this file at ~/.switch-xray.conf or /etc/switch-xray.conf
+# or specify a custom path with --config FILE
+#
+# CLI arguments override values set here.
+# Environment variables (SWITCH_XRAY_*) override config file values
+# but are overridden by CLI arguments.
+#
+# SECURITY NOTE: This file may contain SNMP credentials.
+# Ensure it is not world-readable:
+#   chmod 600 ~/.switch-xray.conf
+
+# --- Target Switches ---
+# Specify one or more switches (one per line)
+# switch = 10.0.0.1
+# switch = leaf-01.example.net
+# switch = leaf-02.example.net
+
+# --- SNMP Settings ---
+
+# SNMP version: 2c (default) or 3
+# snmp_version = 2c
+
+# SNMPv2c community string
+# community = public
+
+# SNMPv3 username
+# snmp_user = monitoring
+
+# SNMPv3 security level: noAuthNoPriv, authNoPriv, or authPriv
+# sec_level = authPriv
+
+# SNMPv3 authentication protocol: MD5, SHA, SHA-256, SHA-384, SHA-512
+# auth_proto = SHA
+
+# SNMPv3 authentication passphrase
+# auth_pass = myauthpass
+
+# SNMPv3 privacy protocol: DES, AES, AES-256
+# priv_proto = AES
+
+# SNMPv3 privacy passphrase
+# priv_pass = myprivpass
+
+# SNMP timeout in seconds (default: 5)
+# timeout = 5
+
+# SNMP retries (default: 1)
+# retries = 1
+
+# --- Platform ---
+# Force platform detection: junos, arista, cumulus, cisco, generic
+# By default, platform is auto-detected from sysDescr
+# platform = junos
