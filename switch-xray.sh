@@ -22,7 +22,7 @@
 #
 # Version: 1.0.0
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
 SCRIPT_NAME="switch-xray"
 SCRIPT_YEAR="2026"
 
@@ -167,26 +167,26 @@ trap 'spinner_stop' EXIT
 
 # --- Color Helpers ---
 colorize_speed() {
-    local RAW="$1"
+    local MBPS="$1"
+    local DISPLAY="$2"
 
     if [[ "$USE_COLOR" != true ]]; then
-        printf "%s" "$RAW"
+        printf "%s" "$DISPLAY"
         return
     fi
 
-    local NUM="${RAW%%[^0-9]*}"
     local COLOR
 
-    if [[ "$NUM" =~ ^[0-9]+$ ]]; then
-        if (( NUM >= 200000 )); then
+    if [[ "$MBPS" =~ ^[0-9]+$ ]]; then
+        if (( MBPS >= 200000 )); then
             COLOR="${BOLD_MAGENTA}"  # 200G+
-        elif (( NUM >= 100000 )); then
+        elif (( MBPS >= 100000 )); then
             COLOR="${BOLD_CYAN}"     # 100G
-        elif (( NUM >= 25000 )); then
+        elif (( MBPS >= 25000 )); then
             COLOR="${BOLD_WHITE}"    # 25G / 40G / 50G
-        elif (( NUM >= 10000 )); then
+        elif (( MBPS >= 10000 )); then
             COLOR="${BOLD_GREEN}"    # 10G
-        elif (( NUM >= 1000 )); then
+        elif (( MBPS >= 1000 )); then
             COLOR="${YELLOW}"        # 1G
         else
             COLOR="${RED}"           # < 1G
@@ -195,7 +195,7 @@ colorize_speed() {
         COLOR="${RED}"               # N/A or unknown
     fi
 
-    printf "%b%s%b" "$COLOR" "$RAW" "$RESET_COLOR"
+    printf "%b%s%b" "$COLOR" "$DISPLAY" "$RESET_COLOR"
 }
 
 colorize_status() {
@@ -210,7 +210,8 @@ colorize_status() {
     if [[ "$STATUS" == "up" ]]; then
         printf "%b%s%b" "$GREEN" "$STATUS" "$RESET_COLOR"
     elif [[ "$STATUS" == "down" && "$TYPE" == "admin" ]]; then
-        printf "%b%s%b" "$YELLOW" "$STATUS" "$RESET_COLOR"
+        # Admin-disabled: dim/gray to match DOT diagram convention
+        printf "%b%s%b" "$DIM" "$STATUS" "$RESET_COLOR"
     else
         printf "%b%s%b" "$RED" "$STATUS" "$RESET_COLOR"
     fi
@@ -435,28 +436,30 @@ collect_interfaces() {
     done < <(snmp_walk "$HOST" "$OID_IFHIGHSPEED")
 
     # ifAdminStatus (1=up, 2=down, 3=testing)
+    # Some devices return text labels instead of numeric values
     while IFS= read -r LINE; do
         [[ -z "$LINE" ]] && continue
         OID_SUFFIX="${LINE%% *}"
         OID_SUFFIX="${OID_SUFFIX##*.}"
         VALUE="${LINE#* }"
         case "$VALUE" in
-            1) IF_ADMIN[$OID_SUFFIX]="up" ;;
-            2) IF_ADMIN[$OID_SUFFIX]="down" ;;
-            *) IF_ADMIN[$OID_SUFFIX]="testing" ;;
+            1|up)   IF_ADMIN[$OID_SUFFIX]="up" ;;
+            2|down) IF_ADMIN[$OID_SUFFIX]="down" ;;
+            *)      IF_ADMIN[$OID_SUFFIX]="testing" ;;
         esac
     done < <(snmp_walk "$HOST" "$OID_IFADMINSTATUS")
 
     # ifOperStatus (1=up, 2=down, ...)
+    # Some devices return text labels instead of numeric values
     while IFS= read -r LINE; do
         [[ -z "$LINE" ]] && continue
         OID_SUFFIX="${LINE%% *}"
         OID_SUFFIX="${OID_SUFFIX##*.}"
         VALUE="${LINE#* }"
         case "$VALUE" in
-            1) IF_OPER[$OID_SUFFIX]="up" ;;
-            2) IF_OPER[$OID_SUFFIX]="down" ;;
-            *) IF_OPER[$OID_SUFFIX]="down" ;;
+            1|up)   IF_OPER[$OID_SUFFIX]="up" ;;
+            2|down) IF_OPER[$OID_SUFFIX]="down" ;;
+            *)      IF_OPER[$OID_SUFFIX]="down" ;;
         esac
     done < <(snmp_walk "$HOST" "$OID_IFOPERSTATUS")
 
@@ -481,7 +484,9 @@ filter_interfaces_junos() {
         local TYPE="${IF_TYPE[$IFIDX]}"
 
         # Keep only ethernetCsmacd (6) and ieee8023adLag (161)
-        [[ "$TYPE" != "6" && "$TYPE" != "161" ]] && continue
+        # Some devices return text labels instead of numeric values
+        [[ "$TYPE" != "6" && "$TYPE" != "ethernetCsmacd" && \
+           "$TYPE" != "161" && "$TYPE" != "ieee8023adLag" ]] && continue
 
         # Keep physical ports and LAG interfaces
         case "$NAME" in
@@ -503,7 +508,8 @@ filter_interfaces_arista() {
         local NAME="${IF_NAME[$IFIDX]}"
         local TYPE="${IF_TYPE[$IFIDX]}"
 
-        [[ "$TYPE" != "6" && "$TYPE" != "161" ]] && continue
+        [[ "$TYPE" != "6" && "$TYPE" != "ethernetCsmacd" && \
+           "$TYPE" != "161" && "$TYPE" != "ieee8023adLag" ]] && continue
 
         case "$NAME" in
             Ethernet*|Port-Channel*)
@@ -521,7 +527,9 @@ filter_interfaces_generic() {
         local TYPE="${IF_TYPE[$IFIDX]}"
 
         # Keep only ethernetCsmacd (6) and ieee8023adLag (161)
-        [[ "$TYPE" != "6" && "$TYPE" != "161" ]] && continue
+        # Some devices return text labels instead of numeric values
+        [[ "$TYPE" != "6" && "$TYPE" != "ethernetCsmacd" && \
+           "$TYPE" != "161" && "$TYPE" != "ieee8023adLag" ]] && continue
 
         local NAME="${IF_NAME[$IFIDX]}"
         # Exclude subinterfaces
@@ -678,8 +686,8 @@ collect_lag() {
         # Skip entries with 0 (represents the top/bottom of stack)
         [[ "$HIGHER" == "0" || "$LOWER" == "0" ]] && continue
 
-        # Check if higher layer is a LAG (ifType 161)
-        if [[ "${IF_TYPE[$HIGHER]}" == "161" ]]; then
+        # Check if higher layer is a LAG (ifType 161 / ieee8023adLag)
+        if [[ "${IF_TYPE[$HIGHER]}" == "161" || "${IF_TYPE[$HIGHER]}" == "ieee8023adLag" ]]; then
             if [[ -n "${LAG_MEMBERS[$HIGHER]}" ]]; then
                 LAG_MEMBERS[$HIGHER]="${LAG_MEMBERS[$HIGHER]},$LOWER"
             else
@@ -810,7 +818,7 @@ correlate_data() {
 
         # LAG info
         local LAG_INFO="-"
-        if [[ "$IFTYPE" == "161" ]]; then
+        if [[ "$IFTYPE" == "161" || "$IFTYPE" == "ieee8023adLag" ]]; then
             # This is a LAG interface, show member count
             local MEMBER_LIST="${LAG_MEMBERS[$IFIDX]}"
             if [[ -n "$MEMBER_LIST" ]]; then
@@ -872,7 +880,7 @@ correlate_data() {
         # Store color variants
         DATA_ADMIN_COLOR[$ROW_COUNT]=$(colorize_status "$ADMIN" "admin")
         DATA_OPER_COLOR[$ROW_COUNT]=$(colorize_status "$OPER" "oper")
-        DATA_SPEED_COLOR[$ROW_COUNT]=$(colorize_speed "$SPEED_VAL")
+        DATA_SPEED_COLOR[$ROW_COUNT]=$(colorize_speed "$SPEED_VAL" "$SPEED_FMT")
         DATA_LAG_COLOR[$ROW_COUNT]=$(colorize_lag "$LAG_INFO")
 
         # Track chassis ID for cross-switch LAG detection
@@ -1276,6 +1284,7 @@ if [[ "$USE_COLOR" == true ]]; then
     GREEN="\033[1;32m"
     RED="\033[1;31m"
     YELLOW="\033[1;33m"
+    DIM="\033[2m"
     BOLD_GREEN="\033[1;32m"
     BOLD_CYAN="\033[1;36m"
     BOLD_MAGENTA="\033[1;35m"
@@ -1286,6 +1295,7 @@ else
     GREEN=""
     RED=""
     YELLOW=""
+    DIM=""
     BOLD_GREEN=""
     BOLD_CYAN=""
     BOLD_MAGENTA=""
